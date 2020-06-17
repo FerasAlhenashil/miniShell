@@ -1,3 +1,6 @@
+/*Author: Feras Alhenashil
+ *Program: miniShell (A linux bash shell simulator program)
+*/
 #include <stdio.h>
 #include <sys/types.h>
 #include <pwd.h>
@@ -5,36 +8,34 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <limits.h>
 
 #define MAXINPUT 1024
 #define DELIMETERS " \t\r\n\a"
 #define bufferSize 64
 
-int promptStatus;
 
+void displayPrompt(){
 
-int displayPrompt(char **args){
+    long size;
+    char *buff;
+    char *dir = NULL;
 
-    char *prompt = "cwushell";
-    if(args  && promptStatus == 1){
-        if(strcmp(args[0], "prompt") == 0 && args[1]){
-            char *newPrompt = args[1];
-            printf("%s>", newPrompt);
-            promptStatus = 2;
-        }else if(strcmp(args[0], "prompt")==0){
-            printf("%s>", prompt);
-        }else{
-            printf("%s>", prompt);
-        }
-    } else{
-        printf("%s>", prompt);
-    }
-    return 2;
+    size = pathconf(".", _PC_PATH_MAX);
+
+    if ((buff = (char *) malloc((size_t) size)) != NULL)
+        dir = getcwd(buff, (size_t)size);
+    char computer [HOST_NAME_MAX];
+    char *username = getenv("USER");
+    gethostname(computer, HOST_NAME_MAX);
+    printf("%s@%s:%s>", username, computer, dir);
+    free(buff);
 }
+
 
 int userInput(char *str) {
     char *line = NULL;
-    ssize_t bufsize = 0;
+    size_t bufsize = 0;
 
     if(getline(&line, &bufsize, stdin) == -1){
         if(feof(stdin)){
@@ -84,29 +85,18 @@ char** parseInput(char *inputline) {
 
 int cd(char **args){
     if( chdir(args[1]) != 0)
-        perror("cwushell: cd");
+        perror("Error");
     return 1;
 }
 
 int shell_exit(char **args){
+    if(args[1]){
     exit(atoi(args[1]));
+    }else{
+	exit(0);
+    }
 }
 
-int shell_manual (char **args){
-    puts("\n ........##### cwushell : an exercise in creating a bash like shell #####.........\n"
-         "\nAuthor: Feras Alhenashil\n"
-         "\n\nThis shell supports the following commands:\n"
-         "\n >exit [n] where n is the exit code. 0 if no n provided\n"
-         "\n >cd [path] to change the directory to path\n"
-         "\n >prompt <newPrompt> replaces the shell prompt with newPrompt\n"
-         "\n >cpuinfo [options] -c (for cpu clock speed) "
-         "\n -t (for cpu type) -n (for number of cores)\n"
-         "\n >meminfo [options] -t (for total RAM) -u (for used RAM) -c (for L2 cached size)\n"
-         "\n All of the regular linux shell commands (internal and external commands e.g. ls, cat etc)"
-         "\n "
-         "\n "
-         "\n ");
-}
 
 int cpuinfo(char **args){
     FILE *cpuinfo = fopen("/proc/cpuinfo", "rb");
@@ -197,18 +187,18 @@ int meminfo(char **args){
 
     if(args[1]){
         if(strcmp(args[1], "-t") == 0){
-            printf("%s\n", content[1]);
+            printf("%s KiB\n", content[1]);
         }else if(strcmp(args[1], "-u") == 0){
             sscanf(content[1], "%d", &totalMem);
             sscanf(content[4], "%d", &freeMem);
             used = totalMem - freeMem;
-            printf("%d\n", used);
+            printf("%d KiB\n", used);
         }else if(strcmp(args[1], "-c") == 0){
             getline(&L2size, &size, L2cache);
             L2size[3] =  NULL;
             sscanf(L2size, "%d", &L2convert);
             L2bytes = L2convert * 1024;
-            printf("%d\n", L2bytes);
+            printf("%d B\n", L2bytes);
         } else if(strcmp(args[1], "--help") == 0  || strcmp(args[1], "-h") == 0){
             puts("\nUsage: meminfo [option]\n"
                  "\nprovides some information about the cpu:\n"
@@ -233,21 +223,36 @@ int meminfo(char **args){
     return 1;
 }
 
+int shell_manual (char **args){
+    puts("\n ........ miniShell : This is an exercise in creating a bash like shell in C .........\n"
+         "\n-- This shell supports all of the regular linux shell commands \n"
+         "(internal and external commands e.g. ls, cat etc), as well as\n"
+         "the following shell implemented commands:\n"
+         "\n >> exit [n] where n is the exit code. 0 if no n provided"
+         "\n >> cpuinfo [options] -c (for cpu clock speed) "
+         "\n -t (for cpu type) -n (for number of cores)"
+         "\n >> meminfo [options] -t (for total RAM) "
+         "\n -u (for used RAM) -c (for L2 cached size)"
+         "\n "
+         "\n ");
+    return 1;
+}
+
 char *ownCMD_str [] ={
       "cd",
       "exit",
-      "prompt",
       "cpuinfo",
       "meminfo",
-      "manual"
+      "manual",
+      "help"
 };
 
 int (*ownCMD_func[]) (char **) = {
         &cd,
         &shell_exit,
-        &displayPrompt,
         &cpuinfo,
         &meminfo,
+        &shell_manual,
         &shell_manual
 };
 
@@ -269,7 +274,7 @@ int executeCMD(char **args) {
 
     if (child_pid == 0){
         if(execvp(args[0], args) < 0){
-            perror(args[0]);
+            perror("Error");
             exit(1);
         }
     }else if(child_pid < 0) {
@@ -286,12 +291,10 @@ int main() {
     char inputline[MAXINPUT];
     char **argv = NULL;
     int status = 1;
-    promptStatus = 1;
+
     while(status) {
-        if(promptStatus == 1)
-            displayPrompt(argv);
+        displayPrompt();
         if (userInput(inputline) || strcmp(inputline, "\n")==0){
-            promptStatus = 1;
             continue;
         }
         argv = parseInput(inputline);
