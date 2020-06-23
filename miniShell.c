@@ -1,5 +1,6 @@
 /*Author: Feras Alhenashil
  *Program: miniShell (A linux bash shell simulator program)
+ *Date: 4/23/2020
 */
 #include <stdio.h>
 #include <sys/types.h>
