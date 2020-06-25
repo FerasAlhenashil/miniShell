@@ -195,7 +195,7 @@ int meminfo(char **args){
             printf("%d KiB\n", used);
         }else if(strcmp(args[1], "-c") == 0){
             getline(&L2size, &size, L2cache);
-            L2size[3] =  NULL;
+            L2size[3] =  0;
             sscanf(L2size, "%d", &L2convert);
             L2bytes = L2convert * 1024;
             printf("%d B\n", L2bytes);
